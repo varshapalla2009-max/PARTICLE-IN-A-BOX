@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Particle in a Box</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a narrow control rail beside a wide graph, with the numeric readout under the graph. */
+:root {
+  --bg: #edf1f6;
+  --surface: #ffffff;
+  --ink: #13203b;
+  --muted: #566783;
+  --line: #cfd8e4;
+  --grid: #e3e9f1;
+  --psi: #1f4fd8;
+  --prob: #e0552b;
+  --prob-fill: rgba(224, 85, 43, 0.16);
+  --field: #f5f8fb;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1526;
+    --surface: #152039;
+    --ink: #e5ebf7;
+    --muted: #93a3c0;
+    --line: #2b3b5f;
+    --grid: #1f2d4a;
+    --psi: #7ba3ff;
+    --prob: #ff8f68;
+    --prob-fill: rgba(255, 143, 104, 0.18);
+    --field: #101a30;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1526;
+  --surface: #152039;
+  --ink: #e5ebf7;
+  --muted: #93a3c0;
+  --line: #2b3b5f;
+  --grid: #1f2d4a;
+  --psi: #7ba3ff;
+  --prob: #ff8f68;
+  --prob-fill: rgba(255, 143, 104, 0.18);
+  --field: #101a30;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+header { display: flex; flex-direction: column; gap: 8px; max-width: 62ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 6vw, 52px); line-height: 1.02; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+
+.layout { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-size: 18px; font-weight: 600; margin: 0 0 14px; letter-spacing: -0.005em; }
+
+form { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field > label, .field > .lab { font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; gap: 8px; min-width: 0; }
+.row > * { min-width: 0; }
+input[type="number"], select {
+  font: 500 15px var(--font-mono);
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 10px;
+  width: 100%;
+}
+select { font-family: var(--font-body); font-weight: 500; }
+.row input { flex: 1 1 auto; }
+.row select { flex: 0 0 92px; width: 92px; }
+input:focus-visible, select:focus-visible, input[type="range"]:focus-visible { outline: 2px solid var(--psi); outline-offset: 2px; }
+.hint { font-size: 12.5px; color: var(--muted); font-family: var(--font-mono); }
+input[type="range"] { width: 100%; accent-color: var(--prob); margin: 4px 0 0; }
+.ends { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 22px; height: 0; border-top: 3px solid var(--psi); display: inline-block; }
+.legend i.p { border-top-color: var(--prob); }
+.legend i.m { border-top: 2px dashed var(--muted); }
+
+.plot { overflow-x: auto; }
+svg.plot-svg { display: block; width: 100%; height: auto; min-width: 460px; }
+.plot-svg text { font-family: var(--font-mono); font-size: 12px; fill: var(--muted); }
+.plot-svg .grid { stroke: var(--grid); stroke-width: 1; }
+.plot-svg .zero { stroke: var(--line); stroke-width: 1.5; }
+.plot-svg .wall { stroke: var(--ink); stroke-width: 4; stroke-linecap: square; }
+.plot-svg .psi { fill: none; stroke: var(--psi); stroke-width: 2.6; stroke-linejoin: round; }
+.plot-svg .prob { fill: var(--prob-fill); stroke: var(--prob); stroke-width: 2; }
+.plot-svg .marker { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.plot-svg .dot-psi { fill: var(--psi); stroke: var(--surface); stroke-width: 2; }
+.plot-svg .dot-prob { fill: var(--prob); stroke: var(--surface); stroke-width: 2; }
+.plot-svg .axis-title { fill: var(--ink); }
+
+.results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+@media (max-width: 700px) { .results { grid-template-columns: minmax(0, 1fr); } }
+.res { border-top: 3px solid var(--line); padding-top: 10px; min-width: 0; }
+.res.e { border-top-color: var(--ink); }
+.res.w { border-top-color: var(--psi); }
+.res.d { border-top-color: var(--prob); }
+.res h3 { margin: 0; font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.val { font-family: var(--font-mono); font-size: clamp(19px, 2.4vw, 24px); font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 4px; overflow-wrap: anywhere; }
+.val small { font-size: 0.62em; color: var(--muted); margin-left: 4px; }
+.val.second { font-size: 16px; color: var(--muted); margin-top: 2px; }
+.note { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--prob); border-radius: 6px; background: var(--field); font-size: 13.5px; }
+.note[hidden] { display: none; }
+
+.formulas { display: grid; gap: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+.ladder { display: flex; flex-direction: column; gap: 7px; }
+.lv { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(88px, auto); gap: 10px; align-items: center; font-family: var(--font-mono); font-size: 12.5px; }
+.lv .bar { height: 10px; background: var(--grid); border-radius: 2px; position: relative; overflow: hidden; }
+.lv .bar b { position: absolute; inset: 0 auto 0 0; background: var(--line); transition: width 0.25s ease; }
+.lv.on .bar b { background: var(--prob); }
+.lv.on { color: var(--ink); font-weight: 500; }
+.lv .ev { text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .lv .bar b { transition: none; } }
+.stack { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+sup { font-size: 0.7em; line-height: 0; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Quantum mechanics &middot; 1D infinite potential well</div>
+    <h1>Particle in a Box</h1>
+    <p>Choose an energy level, a box length and a particle. The page returns the energy, the wave function and the probability density at the position you pick, and draws both curves across the box.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="Inputs">
+      <h2>Inputs</h2>
+      <form id="form" autocomplete="off">
+        <div class="field">
+          <label for="n">Energy level (quantum number n)</label>
+          <input id="n" type="number" min="1" step="1" value="2" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label for="L">Length of the box (L)</label>
+          <div class="row">
+            <input id="L" type="number" min="0" step="any" value="1" inputmode="decimal">
+            <select id="Lu" aria-label="Length unit">
+              <option value="1e-10">Å</option>
+              <option value="1e-9" selected>nm</option>
+              <option value="1e-3">mm</option>
+              <option value="1e-2">cm</option>
+              <option value="1">m</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="particle">Quantum particle</label>
+          <select id="particle">
+            <option value="electron" selected>Electron</option>
+            <option value="proton">Proton</option>
+            <option value="neutron">Neutron</option>
+            <option value="deuteron">Deuteron</option>
+            <option value="alpha">Alpha particle</option>
+          </select>
+          <div class="hint" id="mass"></div>
+        </div>
+
+        <div class="field">
+          <label for="x">Position of the particle (x)</label>
+          <div class="row">
+            <input id="x" type="number" step="any" value="0.25" inputmode="decimal">
+            <select id="xu" aria-label="Position unit">
+              <option value="1e-10">Å</option>
+              <option value="1e-9" selected>nm</option>
+              <option value="1e-3">mm</option>
+              <option value="1e-2">cm</option>
+              <option value="1">m</option>
+            </select>
+          </div>
+          <input id="slide" type="range" min="0" max="1000" value="250" aria-label="Position as a fraction of the box length">
+          <div class="ends"><span>wall x = 0</span><span>wall x = L</span></div>
+        </div>
+      </form>
+    </aside>
+
+    <div class="stack">
+      <section class="panel" aria-label="Results">
+        <h2>Wave function across the box</h2>
+        <div class="legend">
+          <span><i></i>&psi;(x), relative to &radic;(2/L)</span>
+          <span><i class="p"></i>|&psi;(x)|&sup2;, relative to 2/L</span>
+          <span><i class="m"></i>chosen position</span>
+        </div>
+        <div class="plot"><div id="plot"></div></div>
+
+        <div class="results">
+          <div class="res e">
+            <h3>Energy E<sub>n</sub></h3>
+            <div class="val" id="eJ"></div>
+            <div class="val second" id="eEV"></div>
+          </div>
+          <div class="res w">
+            <h3>Wave function &psi;</h3>
+            <div class="val" id="wf"></div>
+          </div>
+          <div class="res d">
+            <h3>Probability density |&psi;|&sup2;</h3>
+            <div class="val" id="pd"></div>
+          </div>
+        </div>
+        <p class="note" id="note" hidden></p>
+      </section>
+
+      <section class="panel" aria-label="Energy levels">
+        <h2>Energy levels for this box</h2>
+        <div class="formulas">
+          <div>E<sub>n</sub> = n&sup2;h&sup2; / (8mL&sup2;)</div>
+          <div>&psi;<sub>n</sub>(x) = &radic;(2/L) &middot; sin(n&pi;x / L)</div>
+        </div>
+        <div class="ladder" id="ladder"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var H = 6.626e-34;
+  var EV = 6.242e18;
+  var PARTICLES = {
+    electron: { name: "Electron", m: 9.109e-31 },
+    proton: { name: "Proton", m: 1.672e-27 },
+    neutron: { name: "Neutron", m: 1.674e-27 },
+    deuteron: { name: "Deuteron", m: 3.343e-27 },
+    alpha: { name: "Alpha particle", m: 6.644e-27 }
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    n: $("n"), L: $("L"), Lu: $("Lu"), particle: $("particle"), mass: $("mass"),
+    x: $("x"), xu: $("xu"), slide: $("slide"),
+    plot: $("plot"), eJ: $("eJ"), eEV: $("eEV"), wf: $("wf"), pd: $("pd"),
+    note: $("note"), ladder: $("ladder")
+  };
+
+  function sci(v, unit) {
+    if (v === 0) return "0" + (unit ? "<small>" + unit + "</small>" : "");
+    var parts = v.toExponential(4).split("e");
+    var exp = parseInt(parts[1], 10);
+    return parts[0] + " &times; 10<sup>" + exp + "</sup>" + (unit ? "<small>" + unit + "</small>" : "");
+  }
+  function clean(v) { return String(Number(v.toPrecision(4))); }
+
+  function plot(n, L, Lunit, X, inside) {
+    var W = 720, Ht = 340, ml = 52, mr = 22, mt = 34, mb = 52;
+    var pw = W - ml - mr, ph = Ht - mt - mb, ymax = 1.2;
+    var sx = function (f) { return ml + f * pw; };
+    var sy = function (v) { return mt + (ph / 2) * (1 - v / ymax); };
+    var s = '<svg class="plot-svg" viewBox="0 0 ' + W + " " + Ht + '" role="img" aria-label="Wave function and probability density for n = ' + n + '">';
+    var i, f;
+    for (i = 0; i <= 4; i++) {
+      f = i / 4;
+      s += '<line class="grid" x1="' + sx(f) + '" x2="' + sx(f) + '" y1="' + mt + '" y2="' + (mt + ph) + '"/>';
+      s += '<text x="' + sx(f) + '" y="' + (mt + ph + 18) + '" text-anchor="middle">' + clean(f * L) + "</text>";
+    }
+    [-1, 0, 1].forEach(function (v) {
+      s += '<line class="' + (v === 0 ? "zero" : "grid") + '" x1="' + ml + '" x2="' + (ml + pw) + '" y1="' + sy(v) + '" y2="' + sy(v) + '"/>';
+      s += '<text x="' + (ml - 10) + '" y="' + (sy(v) + 4) + '" text-anchor="end">' + v + "</text>";
+    });
+    var N = 400, d = "", a = "M" + sx(0) + " " + sy(0);
+    for (i = 0; i <= N; i++) {
+      f = i / N;
+      var sn = Math.sin(n * Math.PI * f);
+      d += (i ? "L" : "M") + sx(f).toFixed(1) + " " + sy(sn).toFixed(1);
+      a += "L" + sx(f).toFixed(1) + " " + sy(sn * sn).toFixed(1);
+    }
+    a += "L" + sx(1) + " " + sy(0) + "Z";
+    s += '<path class="prob" d="' + a + '"/>';
+    s += '<path class="psi" d="' + d + '"/>';
+    s += '<line class="wall" x1="' + sx(0) + '" x2="' + sx(0) + '" y1="' + (mt - 8) + '" y2="' + (mt + ph + 8) + '"/>';
+    s += '<line class="wall" x1="' + sx(1) + '" x2="' + sx(1) + '" y1="' + (mt - 8) + '" y2="' + (mt + ph + 8) + '"/>';
+    s += '<text x="' + (sx(0) + 10) + '" y="' + (mt - 12) + '">V = &infin;</text>';
+    s += '<text x="' + (sx(1) - 10) + '" y="' + (mt - 12) + '" text-anchor="end">V = &infin;</text>';
+    if (inside) {
+      var fx = X / L;
+      var sv = Math.sin(n * Math.PI * fx);
+      s += '<line class="marker" x1="' + sx(fx) + '" x2="' + sx(fx) + '" y1="' + (mt - 4) + '" y2="' + (mt + ph) + '"/>';
+      s += '<circle class="dot-prob" cx="' + sx(fx) + '" cy="' + sy(sv * sv) + '" r="5.5"/>';
+      s += '<circle class="dot-psi" cx="' + sx(fx) + '" cy="' + sy(sv) + '" r="5.5"/>';
+    }
+    s += '<text class="axis-title" x="' + (ml + pw / 2) + '" y="' + (Ht - 8) + '" text-anchor="middle">position x (' + Lunit + ")</text>";
+    s += "</svg>";
+    return s;
+  }
+
+  function ladder(n, m, L) {
+    var lv = [1, 2, 3, 4, 5, 6];
+    if (n > 6) lv.push(n);
+    var top = Math.max.apply(null, lv);
+    var h = "";
+    lv.forEach(function (k) {
+      var eJ = (k * k * H * H) / (8 * m * L * L);
+      var ev = eJ * EV;
+      h += '<div class="lv' + (k === n ? " on" : "") + '"><span>n = ' + k + '</span><span class="bar"><b style="width:' + (100 * k * k) / (top * top) + '%"></b></span><span class="ev">' + ev.toExponential(3) + " eV</span></div>";
+    });
+    els.ladder.innerHTML = h;
+  }
+
+  function update() {
+    var p = PARTICLES[els.particle.value];
+    els.mass.textContent = p.name + " mass = " + p.m.toExponential(3) + " kg";
+
+    var n = parseFloat(els.n.value);
+    var Lraw = parseFloat(els.L.value);
+    var Lk = parseFloat(els.Lu.value);
+    var Lunit = els.Lu.options[els.Lu.selectedIndex].text;
+    var Xraw = parseFloat(els.x.value);
+    var Xk = parseFloat(els.xu.value);
+    var L = Lraw * Lk, X = Xraw * Xk, m = p.m;
+
+    var bad = null;
+    if (!isFinite(n) || n <= 0 || Math.floor(n) !== n) bad = "Not possible to get energy. The energy level must be a whole number of 1 or more.";
+    else if (!isFinite(Lraw) || Lraw <= 0) bad = "Enter a box length greater than zero.";
+    else if (!isFinite(Xraw)) bad = "Enter a position for the particle.";
+
+    if (bad) {
+      els.plot.innerHTML = "";
+      els.eJ.innerHTML = "&mdash;"; els.eEV.innerHTML = ""; els.wf.innerHTML = "&mdash;"; els.pd.innerHTML = "&mdash;";
+      els.ladder.innerHTML = "";
+      els.note.hidden = false; els.note.textContent = bad;
+      return;
+    }
+
+    var inside = X > 0 && X < L;
+    var energy = (n * n * H * H) / (8 * m * L * L);
+    var psi = inside ? Math.sqrt(2 / L) * Math.sin((n * Math.PI * X) / L) : 0;
+    var dens = inside ? psi * psi : 0;
+
+    els.eJ.innerHTML = inside ? sci(energy, "J") : "0<small>J</small>";
+    els.eEV.innerHTML = inside ? sci(energy * EV, "eV") : "0<small>eV</small>";
+    els.wf.innerHTML = sci(psi, "m<sup>-1/2</sup>");
+    els.pd.innerHTML = sci(dens, "m<sup>-1</sup>");
+
+    if (inside) { els.note.hidden = true; }
+    else {
+      els.note.hidden = false;
+      els.note.textContent = "The position is outside the box (it must satisfy 0 < x < L). The energy, wave function and probability density are reported as 0 here, the same as the original program.";
+    }
+
+    els.plot.innerHTML = plot(n, Lraw, Lunit, Xraw * Xk / Lk, inside);
+    ladder(n, m, L);
+  }
+
+  function syncSliderFromX() {
+    var L = parseFloat(els.L.value) * parseFloat(els.Lu.value);
+    var X = parseFloat(els.x.value) * parseFloat(els.xu.value);
+    if (isFinite(L) && L > 0 && isFinite(X)) els.slide.value = Math.round(Math.min(1, Math.max(0, X / L)) * 1000);
+  }
+  function syncXFromSlider() {
+    var L = parseFloat(els.L.value) * parseFloat(els.Lu.value);
+    if (!isFinite(L) || L <= 0) return;
+    var X = (parseInt(els.slide.value, 10) / 1000) * L / parseFloat(els.xu.value);
+    els.x.value = clean(X);
+  }
+
+  ["n", "L", "Lu", "particle", "xu"].forEach(function (id) {
+    els[id].addEventListener("input", function () { syncSliderFromX(); update(); });
+    els[id].addEventListener("change", function () { syncSliderFromX(); update(); });
+  });
+  els.x.addEventListener("input", function () { syncSliderFromX(); update(); });
+  els.slide.addEventListener("input", function () { syncXFromSlider(); update(); });
+  $("form").addEventListener("submit", function (e) { e.preventDefault(); });
+
+  syncSliderFromX();
+  update();
+})();
+</script>
+</body>
+</html>
